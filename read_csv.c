@@ -18,23 +18,24 @@ int main(void)
         printf("Could not open file %s", filename);
         return -1;
     }
-	
+
     // USHM buffers
     int *pushm_time;
     int *pushm_user;
-    double *pushm_positions[9];
-    double *pushm_velocities[9];
+    double *pushm_positions[NUM_AXES];
+    double *pushm_velocities[NUM_AXES];
 
-    pushm_time = (int *) pushm + 1000;
-    pushm_user = (int *) pushm + 1001;
+    // Initialize buffers address
+    pushm_time = (int *) pushm + USHM_INT_BASE_IDX;
+    pushm_user = (int *) pushm + USHM_INT_BASE_IDX + 1;
     
     int axis;
-    for (axis = 0; axis < 9; axis++) {
-        pushm_positions[axis] = (double *)(pushm + 501 + axis);
+    for (axis = 0; axis < NUM_AXES; axis++) {
+        pushm_positions[axis] = (double *)(pushm + USHM_DOUBLE_BASE_IDX + axis);
     }
     
-    for (axis = 0; axis < 9; axis++) {
-        pushm_velocities[axis] = (double *)(pushm + 510 + axis);
+    for (axis = 0; axis < NUM_AXES; axis++) {
+        pushm_velocities[axis] = (double *)(pushm + (USHM_DOUBLE_BASE_IDX+NUM_AXES) + axis);
     }
 
     char line[MAX_LINE_SIZE];
@@ -51,26 +52,25 @@ int main(void)
         }
     }
 
-    #define NUM_FIELDS 19 // Actually is 20, but the increment is 19 because time and user are integers
     while (fgets(line, sizeof(line), file)) {
         char *field = strtok(line, ",");
         
         *pushm_time = atoi(field);
         field = strtok(NULL, ",");
-        pushm_time += NUM_FIELDS;
+        pushm_time += USHM_OFFSET_INT_IDX;
         *pushm_user = atoi(field);
         field = strtok(NULL, ",");
-        pushm_user += NUM_FIELDS;
+        pushm_user += USHM_OFFSET_INT_IDX;
 
         for (axis = 0; axis < 9; axis++) {
             *pushm_positions[axis] = atof(field);
             field = strtok(NULL, ",");
-            pushm_positions[axis] += NUM_FIELDS;
+            pushm_positions[axis] += USHM_OFFSET_DOUBLE_IDX;
         }
         for (axis = 0; axis < 9; axis++) {
             *pushm_velocities[axis] = atof(field);
             field = strtok(NULL, ",");
-            pushm_velocities[axis] += NUM_FIELDS;
+            pushm_velocities[axis] += USHM_OFFSET_DOUBLE_IDX;
         }
         line_count++;
     }
