@@ -16,7 +16,7 @@ int main(void)
 
     if (file == NULL) {
         printf("Could not open file %s", filename);
-        return -1;
+        return 1;
     }
 
     // USHM buffers
@@ -31,11 +31,11 @@ int main(void)
     
     int axis;
     for (axis = 0; axis < NUM_AXES; axis++) {
-        pushm_positions[axis] = (double *)(pushm + USHM_DOUBLE_BASE_IDX + axis);
+        pushm_positions[axis] = (double *) pushm + (USHM_DOUBLE_BASE_IDX + axis);
     }
     
     for (axis = 0; axis < NUM_AXES; axis++) {
-        pushm_velocities[axis] = (double *)(pushm + (USHM_DOUBLE_BASE_IDX+NUM_AXES) + axis);
+        pushm_velocities[axis] = (double *) pushm + (USHM_DOUBLE_BASE_IDX+NUM_AXES + axis);
     }
 
     char line[MAX_LINE_SIZE];
