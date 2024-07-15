@@ -6,6 +6,12 @@
 #include "../../Include/pp_proj.h"
 #include "read_csv.h"
 
+int initAddr(int buffer)
+{
+
+    return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	InitLibrary();  // Required for accessing Power PMAC library
@@ -24,18 +30,19 @@ int main(int argc, char *argv[])
     int *pushm_user;
     double *pushm_positions[NUM_AXES];
     double *pushm_velocities[NUM_AXES];
+    int buffer = atoi(argv[2]);
 
     // Initialize buffers address
-    pushm_time = (int *) pushm + USHM_INT_BASE_IDX;
-    pushm_user = (int *) pushm + USHM_INT_BASE_IDX + 1;
-    
+    pushm_time = (int *) pushm + USHM_INT_BASE_IDX + (buffer * USHM_BUFF_OFFSET_INT_IDX);
+    pushm_user = (int *) pushm + USHM_INT_BASE_IDX + (buffer * USHM_BUFF_OFFSET_INT_IDX) + 1;
+
     int axis;
     for (axis = 0; axis < NUM_AXES; axis++) {
-        pushm_positions[axis] = (double *) pushm + (USHM_DOUBLE_BASE_IDX + axis);
+        pushm_positions[axis] = (double *) pushm + (USHM_DOUBLE_BASE_IDX + axis) + (buffer * USHM_BUFF_OFFSET_DOUBLE_IDX);
     }
-    
+
     for (axis = 0; axis < NUM_AXES; axis++) {
-        pushm_velocities[axis] = (double *) pushm + (USHM_DOUBLE_BASE_IDX+NUM_AXES + axis);
+        pushm_velocities[axis] = (double *) pushm + (USHM_DOUBLE_BASE_IDX+NUM_AXES + axis) + (buffer * USHM_BUFF_OFFSET_DOUBLE_IDX);
     }
 
     char line[MAX_LINE_SIZE];
@@ -52,29 +59,29 @@ int main(int argc, char *argv[])
         }
     }
 
-    while (fgets(line, sizeof(line), file)) {
+    while (fgets(line, sizeof(line), file) && line_count < USHM_BUFF_SIZE) {
         char *field = strtok(line, ",");
-        
+
         *pushm_time = atoi(field);
         field = strtok(NULL, ",");
-        pushm_time += USHM_OFFSET_INT_IDX;
+        pushm_time += USHM_LINE_OFFSET_INT_IDX;
         *pushm_user = atoi(field);
         field = strtok(NULL, ",");
-        pushm_user += USHM_OFFSET_INT_IDX;
+        pushm_user += USHM_LINE_OFFSET_INT_IDX;
 
         for (axis = 0; axis < 9; axis++) {
             *pushm_positions[axis] = atof(field);
             field = strtok(NULL, ",");
-            pushm_positions[axis] += USHM_OFFSET_DOUBLE_IDX;
+            pushm_positions[axis] += USHM_LINE_OFFSET_DOUBLE_IDX;
         }
         for (axis = 0; axis < 9; axis++) {
             *pushm_velocities[axis] = atof(field);
             field = strtok(NULL, ",");
-            pushm_velocities[axis] += USHM_OFFSET_DOUBLE_IDX;
+            pushm_velocities[axis] += USHM_LINE_OFFSET_DOUBLE_IDX;
         }
         line_count++;
     }
-        
+
     fclose(file);
 	exec_time = GetCPUClock()-exec_time;
 	printf("Lines number: %d\n", line_count);
