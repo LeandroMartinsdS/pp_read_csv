@@ -6,12 +6,12 @@
 #include "../../Include/pp_proj.h"
 #include "read_csv.h"
 
-int main(void)
+int main(int argc, char *argv[])
 {
 	InitLibrary();  // Required for accessing Power PMAC library
 	double exec_time = GetCPUClock();
 
-	char *filename = "/var/ftp/csv_test.csv";
+    char *filename = argv[1];
     FILE *file = fopen(filename, "r");
 
     if (file == NULL) {
