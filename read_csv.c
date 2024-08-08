@@ -6,17 +6,17 @@
 #include "../../Include/pp_proj.h"
 #include "read_csv.h"
 
-int initAddr(int buffer)
-{
+//int initAddr(int buffer)
+//{
 
-    return 0;
-}
+//    return 0;
+//}
 
 int main(int argc, char *argv[])
 {
 	InitLibrary();  // Required for accessing Power PMAC library
 	double exec_time = GetCPUClock();
-
+    enum ptrM buffers[2] = {BufferFill_A, BufferFill_B/*, BufferFill_C*/};
     char *filename = argv[1];
     FILE *file = fopen(filename, "r");
 
@@ -69,6 +69,9 @@ int main(int argc, char *argv[])
         field = strtok(NULL, ",");
         pushm_user += USHM_LINE_OFFSET_INT_IDX;
 
+        // TO DO: Consider used Axes - need to read M4036
+        // Rename macro M4036? Currently defined as 'Axes'
+        // Review file structure to have position and velocity in contiguous memory - the loops could me merged then
         for (axis = 0; axis < 9; axis++) {
             *pushm_positions[axis] = atof(field);
             field = strtok(NULL, ",");
@@ -83,10 +86,16 @@ int main(int argc, char *argv[])
     }
 
     fclose(file);
-	exec_time = GetCPUClock()-exec_time;
+
+    // Set Buffer fill
+    if(buffer < sizeof(buffers)/sizeof(buffers[0])){
+        SetPtrVar(buffers[buffer],line_count);
+    }
+
+    exec_time = GetCPUClock()-exec_time;
 	printf("Lines number: %d\n", line_count);
 	printf("Execution time: %f us\n",exec_time);
-	CloseLibrary();
+    CloseLibrary();
 
 	return 0;
 }
