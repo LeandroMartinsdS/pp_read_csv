@@ -7,7 +7,7 @@
 #include "../../Include/pp_proj.h"
 #include "read_csv.h"
 
-void write_PVT(FILE **file, int bufferNum)
+void write_PVT(FILE *file, int bufferNum)
 {
     // USHM PVT buffers
     int *pushm_time;
@@ -29,7 +29,7 @@ void write_PVT(FILE **file, int bufferNum)
 
     char line[MAX_LINE_SIZE];
     // Read the first line
-    if (fgets(line, sizeof(line), *file) != NULL) {
+    if (fgets(line, sizeof(line), file) != NULL) {
         char *token = strtok(line, ",");
         while (token != NULL) {
 			// Store header Data
@@ -38,7 +38,7 @@ void write_PVT(FILE **file, int bufferNum)
         }
     }
 
-    while (fgets(line, sizeof(line), *file) && line_count < USHM_BUFF_SIZE) {
+    while (fgets(line, sizeof(line), file) && line_count < USHM_BUFF_SIZE) {
         char *field = strtok(line, ",");
 
         *pushm_time = atoi(field);
@@ -46,12 +46,15 @@ void write_PVT(FILE **file, int bufferNum)
         pushm_time += USHM_LINE_OFFSET_INT_IDX;
         *pushm_user = atoi(field);
         field = strtok(NULL, ",");
-        pushm_user += USHM_LINE_OFFSET_INT_IDX;
+        pushm_user += USHM_LINE_OFFSET_INT_IDX; // motot/axis wise
+//        pushm_user += (NUM_AXES+1)*2; //point-wise
 
         for (axis = 0; axis < NUM_AXES; axis++) {
             *pushm_positions[axis] = atof(field);
             field = strtok(NULL, ",");
-            pushm_positions[axis] += USHM_LINE_OFFSET_DOUBLE_IDX;
+            pushm_positions[axis] += USHM_LINE_OFFSET_DOUBLE_IDX; // motor/axis wise
+//            pushm_positions[axis] += (NUM_AXES+1); //point-wise
+
         }
         for (axis = 0; axis < NUM_AXES; axis++) {
             *pushm_velocities[axis] = atof(field);
@@ -61,9 +64,10 @@ void write_PVT(FILE **file, int bufferNum)
 
         line_count++;
     }
+    return 0;
 }
 
-int write_positions(FILE **file, int bufferNum)
+int write_positions(FILE *file, int bufferNum)
 {
     // USHM Motor positions buffers
     int *pushm_user;
@@ -71,7 +75,7 @@ int write_positions(FILE **file, int bufferNum)
     int line_count = 0;      
 
     // Initialize buffers addresses
-    pushm_user = (int *) pushm + USHM_INT_BASE_IDX + (bufferNum * USHM_BUFF_OFFSET_INT_IDX)/*+1*/;
+    pushm_user = (int *) pushm + USHM_INT_BASE_IDX + (bufferNum * USHM_BUFF_OFFSET_INT_IDX)+1;
 
     int axis;
     for (axis = 0; axis < NUM_AXES; axis++) {
@@ -80,7 +84,7 @@ int write_positions(FILE **file, int bufferNum)
 
     char line[MAX_LINE_SIZE];
     // Read the first line
-    if (fgets(line, sizeof(line), *file) != NULL) {
+    if (fgets(line, sizeof(line), file) != NULL) {
         char *token = strtok(line, ",");
         while (token != NULL) {
 			// Store header Data
@@ -89,37 +93,40 @@ int write_positions(FILE **file, int bufferNum)
         }
     }
     
-    while (fgets(line, sizeof(line), *file) && line_count < USHM_BUFF_SIZE) {
+    while (fgets(line, sizeof(line), file) && line_count < USHM_BUFF_SIZE) {
         char *field = strtok(line, ",");
 
         *pushm_user = atoi(field);
         field = strtok(NULL, ",");
-        pushm_user += USHM_LINE_OFFSET_INT_IDX;
+//        pushm_user += USHM_LINE_OFFSET_INT_IDX; // motot/axis wise
+        pushm_user += (NUM_AXES+1)*2; //point-wise
 
         for (axis = 0; axis < NUM_AXES; axis++) {
             *pushm_positions[axis] = atof(field);
             field = strtok(NULL, ",");
-            pushm_positions[axis] += USHM_LINE_OFFSET_DOUBLE_IDX;
+//            pushm_positions[axis] += USHM_LINE_OFFSET_DOUBLE_IDX; // motor/axis wise
+            pushm_positions[axis] += (NUM_AXES+1); //point-wise
         }
         line_count++;
     }
 }
 
-int read_csv(char **filename, int profileType, int bufferNum)
+int read_csv(char *filename, int profileType, int bufferNum)
 {
-    FILE *file = fopen(*filename, "r");
+    FILE *file = fopen(filename, "r");
     if (file == NULL) {
         printf("Could not open file %s", filename);
         return 1;
     }
     if (profileType == 0) {
-        write_PVT(&file, bufferNum);
+        write_PVT(file, bufferNum);
     } 
     else if (profileType == 1) {
-        write_positions(&file, bufferNum);
+        write_positions(file, bufferNum);
     }
 
     fclose(file);
+    return 0;
 }
 
 int main(int argc, char *argv[])
@@ -133,7 +140,7 @@ int main(int argc, char *argv[])
     int bufferNum = atoi(argv[3]);      // 0:BufferA, 1:BufferB, [2:BufferC]
 
 //    int line_count;
-    read_csv(&filename, profileType, bufferNum);
+    read_csv(filename, profileType, bufferNum);
 
 	exec_time = GetCPUClock()-exec_time;
 //	printf("Lines number: %d\n", line_count);
