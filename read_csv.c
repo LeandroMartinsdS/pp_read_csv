@@ -7,7 +7,7 @@
 #include "../../Include/pp_proj.h"
 #include "read_csv.h"
 
-void write_PVT(FILE *file, int bufferNum)
+int write_PVT(FILE *file, int bufferNum)
 {
     // USHM PVT buffers
     int *pushm_time;
@@ -67,12 +67,11 @@ void write_PVT(FILE *file, int bufferNum)
     return 0;
 }
 
-int write_positions(FILE *file, int bufferNum)
+int write_positions(FILE *file, int bufferNum, int *line_count)
 {
     // USHM Motor positions buffers
     int *pushm_user;
     double *pushm_positions[NUM_AXES];
-    int line_count = 0;      
 
     // Initialize buffers addresses
     pushm_user = (int *) pushm + USHM_INT_BASE_IDX + (bufferNum * USHM_BUFF_OFFSET_INT_IDX)+1;
@@ -93,7 +92,7 @@ int write_positions(FILE *file, int bufferNum)
         }
     }
     
-    while (fgets(line, sizeof(line), file) && line_count < USHM_BUFF_SIZE) {
+    while (fgets(line, sizeof(line), file) && (*line_count) < USHM_BUFF_SIZE) {
         char *field = strtok(line, ",");
 
         *pushm_user = atoi(field);
@@ -107,13 +106,16 @@ int write_positions(FILE *file, int bufferNum)
 //            pushm_positions[axis] += USHM_LINE_OFFSET_DOUBLE_IDX; // motor/axis wise
             pushm_positions[axis] += (NUM_AXES+1); //point-wise
         }
-        line_count++;
+        (*line_count)++;
     }
+    return 0;
 }
 
 int read_csv(char *filename, int profileType, int bufferNum)
 {
     FILE *file = fopen(filename, "r");
+    int line_count = 0;
+
     if (file == NULL) {
         printf("Could not open file %s", filename);
         return 1;
@@ -122,8 +124,11 @@ int read_csv(char *filename, int profileType, int bufferNum)
         write_PVT(file, bufferNum);
     } 
     else if (profileType == 1) {
-        write_positions(file, bufferNum);
+        write_positions(file, bufferNum,&line_count);
     }
+    
+    SetPtrVar(BufferFill_A+bufferNum, line_count);
+//    printf("lines: %d\n",line_count);
 
     fclose(file);
     return 0;
@@ -132,19 +137,19 @@ int read_csv(char *filename, int profileType, int bufferNum)
 int main(int argc, char *argv[])
 {
 	InitLibrary();  // Required for accessing Power PMAC library
-    double exec_time = GetCPUClock(); // Evaluation purposes only
+//    double exec_time = GetCPUClock(); // Evaluation purposes only
 
     // TODO: Add argc checks, and set defaults values for profileType and bufferNum
     char *filename = argv[1];
-    int profileType = atoi(argv[2]);    // 0: PVT, 1:Motors positions + User Commands
-    int bufferNum = atoi(argv[3]);      // 0:BufferA, 1:BufferB, [2:BufferC]
+    uint8_t profileType = atoi(argv[2]);    // 0: PVT, 1:Motors positions + User Commands
+    uint8_t bufferNum = atoi(argv[3]);      // 0:BufferA, 1:BufferB, [2:BufferC]
 
 //    int line_count;
     read_csv(filename, profileType, bufferNum);
 
-	exec_time = GetCPUClock()-exec_time;
+//	exec_time = GetCPUClock()-exec_time;
 //	printf("Lines number: %d\n", line_count);
-	printf("Execution time: %f us\n",exec_time);
+//	printf("Execution time: %f us\n",exec_time);
 	CloseLibrary();
 
 	return 0;
