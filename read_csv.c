@@ -1,54 +1,33 @@
 /*For more information see notes.txt in the Documentation folder */
 #include <gplib.h>
 #include <stdlib.h>
+#include <errno.h>
 
 #define _PPScriptMode_		// for enum mode, replace this with #define _EnumMode_
 #include "../../Include/pp_proj.h"
 #include "read_csv.h"
 
-//int initAddr(int buffer)
-//{
-
-//    return 0;
-//}
-
-int main(int argc, char *argv[])
+int write_PVT(FILE *file, int bufferNum)
 {
-	InitLibrary();  // Required for accessing Power PMAC library
-	double exec_time = GetCPUClock();
-    enum ptrM buffers[2] = {BufferFill_A, BufferFill_B/*, BufferFill_C*/};
-    char *filename = argv[1];
-    FILE *file = fopen(filename, "r");
-
-    if (file == NULL) {
-        printf("Could not open file %s", filename);
-        return 1;
-    }
-
-    // USHM buffers
+    // USHM PVT buffers
     int *pushm_time;
     int *pushm_user;
     double *pushm_positions[NUM_AXES];
     double *pushm_velocities[NUM_AXES];
-    int buffer = atoi(argv[2]);
-
-    // Initialize buffers address
-    pushm_time = (int *) pushm + USHM_INT_BASE_IDX + (buffer * USHM_BUFF_OFFSET_INT_IDX);
-    pushm_user = (int *) pushm + USHM_INT_BASE_IDX + (buffer * USHM_BUFF_OFFSET_INT_IDX) + 1;
+    int line_count = 0;
+    // Initialize buffers addresses
+    pushm_time = (int *) pushm + USHM_INT_BASE_IDX + (bufferNum * USHM_BUFF_OFFSET_INT_IDX);
+    pushm_user = (int *) pushm + USHM_INT_BASE_IDX + (bufferNum * USHM_BUFF_OFFSET_INT_IDX)+1;
 
     int axis;
     for (axis = 0; axis < NUM_AXES; axis++) {
-        pushm_positions[axis] = (double *) pushm + (USHM_DOUBLE_BASE_IDX + axis) + (buffer * USHM_BUFF_OFFSET_DOUBLE_IDX);
+        pushm_positions[axis] = (double *) pushm + (USHM_DOUBLE_BASE_IDX + axis) + (bufferNum * USHM_BUFF_OFFSET_DOUBLE_IDX);
     }
-
     for (axis = 0; axis < NUM_AXES; axis++) {
-        pushm_velocities[axis] = (double *) pushm + (USHM_DOUBLE_BASE_IDX+NUM_AXES + axis) + (buffer * USHM_BUFF_OFFSET_DOUBLE_IDX);
+        pushm_velocities[axis] = (double *) pushm + (USHM_DOUBLE_BASE_IDX+NUM_AXES + axis) + (bufferNum * USHM_BUFF_OFFSET_DOUBLE_IDX);
     }
 
     char line[MAX_LINE_SIZE];
-	int line_count;
-    line_count=0;
-
     // Read the first line
     if (fgets(line, sizeof(line), file) != NULL) {
         char *token = strtok(line, ",");
@@ -67,35 +46,111 @@ int main(int argc, char *argv[])
         pushm_time += USHM_LINE_OFFSET_INT_IDX;
         *pushm_user = atoi(field);
         field = strtok(NULL, ",");
-        pushm_user += USHM_LINE_OFFSET_INT_IDX;
+        pushm_user += USHM_LINE_OFFSET_INT_IDX; // motot/axis wise
+//        pushm_user += (NUM_AXES+1)*2; //point-wise
 
-        // TO DO: Consider used Axes - need to read M4036
-        // Rename macro M4036? Currently defined as 'Axes'
-        // Review file structure to have position and velocity in contiguous memory - the loops could me merged then
-        for (axis = 0; axis < 9; axis++) {
+        for (axis = 0; axis < NUM_AXES; axis++) {
             *pushm_positions[axis] = atof(field);
             field = strtok(NULL, ",");
-            pushm_positions[axis] += USHM_LINE_OFFSET_DOUBLE_IDX;
+            pushm_positions[axis] += USHM_LINE_OFFSET_DOUBLE_IDX; // motor/axis wise
+//            pushm_positions[axis] += (NUM_AXES+1); //point-wise
+
         }
-        for (axis = 0; axis < 9; axis++) {
+        for (axis = 0; axis < NUM_AXES; axis++) {
             *pushm_velocities[axis] = atof(field);
             field = strtok(NULL, ",");
             pushm_velocities[axis] += USHM_LINE_OFFSET_DOUBLE_IDX;
         }
+
         line_count++;
     }
+    return 0;
+}
 
-    fclose(file);
+int write_positions(FILE *file, int bufferNum, int *line_count)
+{
+    // USHM Motor positions buffers
+    int *pushm_user;
+    double *pushm_positions[NUM_AXES];
 
-    // Set Buffer fill
-    if(buffer < sizeof(buffers)/sizeof(buffers[0])){
-        SetPtrVar(buffers[buffer],line_count);
+    // Initialize buffers addresses
+    pushm_user = (int *) pushm + USHM_INT_BASE_IDX + (bufferNum * USHM_BUFF_OFFSET_INT_IDX)+1;
+
+    int axis;
+    for (axis = 0; axis < NUM_AXES; axis++) {
+        pushm_positions[axis] = (double *) pushm + (USHM_DOUBLE_BASE_IDX + axis) + (bufferNum * USHM_BUFF_OFFSET_DOUBLE_IDX);
     }
 
-    exec_time = GetCPUClock()-exec_time;
-	printf("Lines number: %d\n", line_count);
-	printf("Execution time: %f us\n",exec_time);
-    CloseLibrary();
+    char line[MAX_LINE_SIZE];
+    // Read the first line
+    if (fgets(line, sizeof(line), file) != NULL) {
+        char *token = strtok(line, ",");
+        while (token != NULL) {
+			// Store header Data
+			// ...
+	        token = strtok(NULL, ",");
+        }
+    }
+    
+    while (fgets(line, sizeof(line), file) && (*line_count) < USHM_BUFF_SIZE) {
+        char *field = strtok(line, ",");
+
+        *pushm_user = atoi(field);
+        field = strtok(NULL, ",");
+//        pushm_user += USHM_LINE_OFFSET_INT_IDX; // motot/axis wise
+        pushm_user += (NUM_AXES+1)*2; //point-wise
+
+        for (axis = 0; axis < NUM_AXES; axis++) {
+            *pushm_positions[axis] = atof(field);
+            field = strtok(NULL, ",");
+//            pushm_positions[axis] += USHM_LINE_OFFSET_DOUBLE_IDX; // motor/axis wise
+            pushm_positions[axis] += (NUM_AXES+1); //point-wise
+        }
+        (*line_count)++;
+    }
+    return 0;
+}
+
+int read_csv(char *filename, int profileType, int bufferNum)
+{
+    FILE *file = fopen(filename, "r");
+    int line_count = 0;
+
+    if (file == NULL) {
+        printf("Could not open file %s", filename);
+        return 1;
+    }
+    if (profileType == 0) {
+        write_PVT(file, bufferNum);
+    } 
+    else if (profileType == 1) {
+        write_positions(file, bufferNum,&line_count);
+    }
+    
+    SetPtrVar(BufferFill_A+bufferNum, line_count);
+//    printf("lines: %d\n",line_count);
+
+    fclose(file);
+    return 0;
+}
+
+int main(int argc, char *argv[])
+{
+	InitLibrary();  // Required for accessing Power PMAC library
+//    double exec_time = GetCPUClock(); // Evaluation purposes only
+
+    // TODO: Add argc checks, and set defaults values for profileType and bufferNum
+    char *filename = argv[1];
+    uint8_t profileType = atoi(argv[2]);    // 0: PVT, 1:Motors positions + User Commands
+    uint8_t bufferNum = atoi(argv[3]);      // 0:BufferA, 1:BufferB, [2:BufferC]
+
+//    int line_count;
+    read_csv(filename, profileType, bufferNum);
+
+//	exec_time = GetCPUClock()-exec_time;
+//	printf("Lines number: %d\n", line_count);
+//	printf("Execution time: %f us\n",exec_time);
+	CloseLibrary();
 
 	return 0;
 }
